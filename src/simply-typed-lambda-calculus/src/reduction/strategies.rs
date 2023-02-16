@@ -15,6 +15,7 @@ pub fn normal_order(ex: Expr, limit: Option<usize>) -> Expr {
     break_limit!(ex, limit);
 
     match ex {
+        Expr::Int(int) => Expr::Int(int),
         Expr::Var(var) => Expr::Var(var),
         Expr::Abs(abs) => {
             let body = normal_order(*abs.body, limit);
@@ -48,6 +49,7 @@ pub fn applicative_order(ex: Expr, limit: Option<usize>) -> Expr {
     break_limit!(ex, limit);
 
     match ex {
+        Expr::Int(int) => Expr::Int(int),
         Expr::Var(var) => Expr::Var(var),
         Expr::Abs(abs) => {
             let body = applicative_order(*abs.body, limit);
@@ -76,6 +78,7 @@ pub fn call_by_name(ex: Expr, limit: Option<usize>) -> Expr {
     break_limit!(ex, limit);
 
     match ex {
+        Expr::Int(int) => Expr::Int(int),
         Expr::Var(var) => Expr::Var(var),
         Expr::Abs(abs) => Expr::Abs(abs),
         Expr::App(App { lambda, argm, range }) => {
@@ -96,6 +99,7 @@ pub fn call_by_value(ex: Expr, limit: Option<usize>) -> Expr {
     break_limit!(ex, limit);
 
     match ex {
+        Expr::Int(int) => Expr::Int(int),
         Expr::Var(var) => Expr::Var(var),
         Expr::Abs(abs) => Expr::Abs(abs),
         Expr::App(App { lambda, argm, range }) => {

@@ -3,7 +3,7 @@ pub mod error;
 use std::collections::HashMap;
 
 use self::error::TypeError;
-use crate::parser::parsetree::{Abs, App, Arrow, Expr, Type, Var};
+use crate::parser::parsetree::{Abs, App, Arrow, Expr, Int, TInt, Type, Var};
 
 fn equal_type(ty1: &Type, ty2: &Type) -> bool {
     match (ty1, ty2) {
@@ -20,6 +20,7 @@ type TypeContext = HashMap<String, Type>;
 
 fn infer_type(context: &mut TypeContext, expr: &Expr) -> Result<Type, TypeError> {
     match expr {
+        Expr::Int(Int { .. }) => Ok(Type::TInt(TInt {})),
         Expr::Var(Var { value, .. }) => match context.get(value) {
             None => Err(TypeError::UndefinedVariable(value.clone())),
             Some(ty) => Ok(ty.clone()),

@@ -7,6 +7,12 @@ pub struct Var {
     pub range: Range,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Int {
+    pub value: usize,
+    pub range: Range,
+}
+
 #[derive(Debug, Clone)]
 pub struct Abs {
     pub param: String,
@@ -39,6 +45,7 @@ pub enum Type {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
+    Int(Int),
     Var(Var),
     Abs(Abs),
     App(App),
@@ -47,10 +54,17 @@ pub enum Expr {
 impl Expr {
     pub fn range(&self) -> Range {
         match self {
+            Expr::Int(Int { range, .. }) => range.clone(),
             Expr::Var(Var { range, .. }) => range.clone(),
             Expr::Abs(Abs { range, .. }) => range.clone(),
             Expr::App(App { range, .. }) => range.clone(),
         }
+    }
+}
+
+impl fmt::Display for Int {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
     }
 }
 
@@ -93,6 +107,7 @@ impl fmt::Display for Type {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Expr::Int(int) => write!(f, "{}", int),
             Expr::Var(var) => write!(f, "{}", var),
             Expr::Abs(abs) => write!(f, "{}", abs),
             Expr::App(app) => write!(f, "{}", app),

@@ -2,7 +2,7 @@ use super::{
     error::ParserError,
     lexer::tokens::Token,
     macros::{consume, match_token},
-    parsetree::{Abs, App, Arrow, Expr, TInt, Type, Var},
+    parsetree::{Abs, App, Arrow, Expr, Int, TInt, Type, Var},
     state::Parser,
 };
 
@@ -13,10 +13,17 @@ impl<'a> Parser<'a> {
         Ok(Expr::Var(Var { value: token, range }))
     }
 
+    pub fn parse_number_expr(&mut self) -> Result<Expr, ParserError> {
+        let (token, range) = consume!(self, Token::Number(num) => num.clone())?;
+
+        Ok(Expr::Int(Int { value: token, range }))
+    }
+
     pub fn parse_atom(&mut self) -> Result<Expr, ParserError> {
         match self.get() {
             Token::LParen => self.parse_parens_expr(),
             Token::Variable(_) => self.parse_variable_expr(),
+            Token::Number(_) => self.parse_number_expr(),
             _ => self.fail(),
         }
     }

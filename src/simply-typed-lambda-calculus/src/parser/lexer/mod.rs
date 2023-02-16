@@ -8,6 +8,10 @@ fn is_whitespace(c: char) -> bool {
     matches!(c, ' ' | '\t' | '\r')
 }
 
+fn is_digit(c: char) -> bool {
+    ('0'..='9').contains(&c)
+}
+
 fn is_reserved(c: char) -> bool {
     matches!(c, '(' | ')' | '.' | ':' | 'λ')
 }
@@ -51,6 +55,12 @@ impl<'a> Lexer<'a> {
                 ')' => self.single_token(Token::RParen, start),
                 ':' => self.single_token(Token::Colon, start),
                 '.' => self.single_token(Token::Dot, start),
+                chr if is_digit(*chr) => {
+                    let num = self.accu_while(is_digit);
+                    let num = num.parse::<usize>().unwrap();
+                    let tok = Token::Number(num);
+                    self.make_token(tok, start)
+                }
                 chr if is_valid_char(*chr) => {
                     let str = self.accu_while(is_valid_char);
                     let tok = Lexer::to_keyword(str);

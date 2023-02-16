@@ -1,10 +1,11 @@
-use crate::parser::parsetree::{Abs, App, Expr, Var};
+use crate::parser::parsetree::{Abs, App, Expr, Int, Var};
 use std::collections::HashSet;
 
 pub fn free_variables(expr: Expr) -> HashSet<String> {
     let mut free: HashSet<String> = HashSet::new();
 
     match expr {
+        Expr::Int(Int { .. }) => (),
         Expr::Var(Var { value, .. }) => {
             free.insert(value);
         }
@@ -25,6 +26,7 @@ pub fn substitution(expr: Expr, from: String, to: Expr) -> Expr {
     match expr.clone() {
         Expr::Var(Var { value, .. }) if value == from => to,
         Expr::Var(Var { .. }) => expr,
+        Expr::Int(Int { .. }) => expr,
         Expr::App(app) => {
             let lambda = substitution(*app.lambda, from.clone(), to.clone());
             let argm = substitution(*app.argm, from, to);
