@@ -102,9 +102,6 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_arrow_partial(&mut self, head: Type) -> Result<Type, ParserError> {
-        println!("{:?}", self.get());
-        println!("{}", head);
-
         if let Token::Arrow = self.get() {
             consume!(self, Token::Arrow)?;
             let body = self.parse_type()?;

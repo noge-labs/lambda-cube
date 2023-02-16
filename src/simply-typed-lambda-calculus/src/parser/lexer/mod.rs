@@ -26,7 +26,7 @@ impl<'a> Lexer<'a> {
         match buf {
             "lambda" => Token::Lambda,
             "int" => Token::TInt,
-            "->" => Token::Lambda,
+            "->" => Token::Arrow,
             _ => Token::Variable(buf.to_string()),
         }
     }
@@ -69,15 +69,15 @@ mod test {
     fn test_lex(expr: &str, tokens: Vec<Token>) -> bool {
         let mut lexer = crate::parser::Lexer::new(expr);
 
-        std::iter::from_fn(|| {
+        let toks = std::iter::from_fn(|| {
             let (token, _) = lexer.lex_token();
             if token == Token::Error {
                 return None;
             }
             Some(token)
-        })
-        .zip(tokens)
-        .all(|(input, expected)| input == expected)
+        });
+
+        toks.zip(tokens).all(|(input, expected)| input == expected)
     }
 
     #[test]
@@ -103,14 +103,16 @@ mod test {
 
     #[test]
     fn test_lex_lambda_type() {
-        let received = "λid:int. id";
+        let received = "λ f : int -> int . f";
         let expected = vec![
             Token::Lambda,
-            Token::Variable(String::from("id")),
+            Token::Variable(String::from("f")),
             Token::Colon,
             Token::TInt,
+            Token::Arrow,
+            Token::TInt,
             Token::Dot,
-            Token::Variable(String::from("id")),
+            Token::Variable(String::from("f")),
         ];
 
         assert!(test_lex(received, expected))

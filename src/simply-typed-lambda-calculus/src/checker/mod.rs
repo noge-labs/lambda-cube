@@ -16,39 +16,41 @@ fn equal_type(ty1: &Type, ty2: &Type) -> bool {
     }
 }
 
-fn infer_type(context: &mut HashMap<String, Type>, expr: Expr) -> Result<Type, TypeError> {
+type TypeContext = HashMap<String, Type>;
+
+fn infer_type(context: &mut TypeContext, expr: &Expr) -> Result<Type, TypeError> {
     match expr {
-        Expr::Var(Var { value, .. }) => match context.get(&value) {
+        Expr::Var(Var { value, .. }) => match context.get(value) {
+            None => Err(TypeError::UndefinedVariable(value.clone())),
             Some(ty) => Ok(ty.clone()),
-            None => Err(TypeError::UndefinedVariable(value)),
         },
         Expr::Abs(Abs { param, param_ty, body, .. }) => {
-            context.entry(param.clone()).or_insert(param_ty.clone());
+            context.insert(param.clone(), param_ty.clone());
 
-            let body_ty = infer_type(context, *body)?;
+            let body_ty = infer_type(context, body)?;
 
             Ok(Type::Arrow(Arrow {
-                left: Box::new(param_ty),
+                left: Box::new(param_ty.clone()),
                 right: Box::new(body_ty),
             }))
         }
         Expr::App(App { lambda, argm, .. }) => {
-            let abs_ty = infer_type(context, *lambda)?;
-            let arg_ty = infer_type(context, *argm)?;
+            let lambda_ty = infer_type(context, lambda)?;
+            let argm_ty = infer_type(context, argm)?;
 
-            if let Type::Arrow(Arrow { left, right }) = abs_ty {
-                if equal_type(&left, &arg_ty) {
+            if let Type::Arrow(Arrow { left, right }) = lambda_ty {
+                if equal_type(&left, &argm_ty) {
                     Ok(*right)
                 } else {
-                    Err(TypeError::TypeClash(*left, arg_ty))
+                    Err(TypeError::Mismatch(*left, argm_ty))
                 }
             } else {
-                Err(TypeError::UnexpectedType(abs_ty.clone()))
+                Err(TypeError::UnexpectedType(lambda_ty.clone()))
             }
         }
     }
 }
 
-pub fn type_of(expr: Expr) -> Result<Type, TypeError> {
+pub fn type_of(expr: &Expr) -> Result<Type, TypeError> {
     infer_type(&mut HashMap::new(), expr)
 }
