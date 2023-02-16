@@ -1,5 +1,6 @@
 [workspace]
 
 members = [
-  "src/untyped-lambda-calculus"
+  "src/untyped-lambda-calculus",
+  "src/simply-typed-lambda-calculus"
 ]
