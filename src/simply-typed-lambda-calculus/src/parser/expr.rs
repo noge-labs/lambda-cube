@@ -30,8 +30,8 @@ impl<'a> Parser<'a> {
 
     pub fn parse_abs(&mut self) -> Result<Expr, ParserError> {
         let (_, range) = consume!(self, Token::Lambda)?;
-
         let (param, _) = consume!(self, Token::Variable(var) => var.clone())?;
+
         consume!(self, Token::Colon)?;
         let param_type = self.parse_type()?;
 
