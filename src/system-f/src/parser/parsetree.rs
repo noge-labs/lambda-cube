@@ -1,0 +1,175 @@
+use super::location::Range;
+use std::fmt;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Int {
+    pub value: usize,
+    pub range: Range,
+}
+
+#[derive(Debug, Clone)]
+pub struct Var {
+    pub value: String,
+    pub range: Range,
+}
+
+#[derive(Debug, Clone)]
+pub struct Abs {
+    pub param: String,
+    pub param_ty: Type,
+    pub body: Box<Expr>,
+    pub range: Range,
+}
+
+#[derive(Debug, Clone)]
+pub struct App {
+    pub lambda: Box<Expr>,
+    pub argm: Box<Expr>,
+    pub range: Range,
+}
+
+#[derive(Debug, Clone)]
+pub struct TAbs {
+    pub param: String,
+    pub body: Box<Expr>,
+    pub range: Range,
+}
+
+#[derive(Debug, Clone)]
+pub struct TApp {
+    pub lambda: Box<Expr>,
+    pub argm: Type,
+    pub range: Range,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TInt {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TVar {
+    pub value: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Forall {
+    pub param: String,
+    pub body: Box<Type>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Arrow {
+    pub left: Box<Type>,
+    pub right: Box<Type>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Type {
+    TInt(TInt),
+    TVar(TVar),
+    Arrow(Arrow),
+    Forall(Forall),
+}
+
+#[derive(Debug, Clone)]
+pub enum Expr {
+    Int(Int),
+    Var(Var),
+    Abs(Abs),
+    App(App),
+    TAbs(TAbs),
+    TApp(TApp),
+}
+
+impl Expr {
+    pub fn range(&self) -> Range {
+        match self {
+            Expr::Int(Int { range, .. }) => range.clone(),
+            Expr::Var(Var { range, .. }) => range.clone(),
+            Expr::Abs(Abs { range, .. }) => range.clone(),
+            Expr::App(App { range, .. }) => range.clone(),
+            Expr::TAbs(TAbs { range, .. }) => range.clone(),
+            Expr::TApp(TApp { range, .. }) => range.clone(),
+        }
+    }
+}
+
+impl fmt::Display for Int {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
+impl fmt::Display for Var {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
+impl fmt::Display for Abs {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(λ{}: {}. {})", self.param, self.param_ty, self.body)
+    }
+}
+
+impl fmt::Display for App {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({} {})", self.lambda, self.argm)
+    }
+}
+
+impl fmt::Display for TAbs {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(λ{}. {})", self.param, self.body)
+    }
+}
+
+impl fmt::Display for TApp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({} [{}])", self.lambda, self.argm)
+    }
+}
+
+impl fmt::Display for Arrow {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self.left {
+            Type::Arrow(_) => write!(f, "({}) -> {}", self.left, self.right),
+            _ => write!(f, "{} -> {}", self.left, self.right),
+        }
+    }
+}
+
+impl fmt::Display for TVar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
+impl fmt::Display for Forall {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "∀{}. {}", self.param, self.body)
+    }
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Type::TInt(_) => write!(f, "int"),
+            Type::TVar(tvar) => write!(f, "{}", tvar),
+            Type::Arrow(arrow) => write!(f, "{}", arrow),
+            Type::Forall(forall) => write!(f, "{}", forall),
+        }
+    }
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Expr::Int(int) => write!(f, "{}", int),
+            Expr::Var(var) => write!(f, "{}", var),
+            Expr::Abs(abs) => write!(f, "{}", abs),
+            Expr::App(app) => write!(f, "{}", app),
+            Expr::TAbs(tabs) => write!(f, "{}", tabs),
+            Expr::TApp(tapp) => write!(f, "{}", tapp),
+        }
+    }
+}
