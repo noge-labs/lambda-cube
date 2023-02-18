@@ -5,7 +5,7 @@ pub mod state;
 pub mod tokens;
 
 fn is_whitespace(c: char) -> bool {
-    matches!(c, ' ' | '\t' | '\r')
+    matches!(c, ' ' | '\t' | '\r' | '\n')
 }
 
 fn is_digit(c: char) -> bool {

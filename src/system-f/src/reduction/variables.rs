@@ -52,12 +52,10 @@ pub fn substitution(expr: Expr, from: String, to: Expr) -> Expr {
         }
         Expr::TAbs(TAbs { param, body, range }) => {
             let body = substitution(*body, from, to);
-
             Expr::TAbs(TAbs { param, body: Box::new(body), range })
         }
         Expr::TApp(TApp { lambda, argm, range }) => {
             let lambda = substitution(*lambda, from, to);
-
             Expr::TApp(TApp { lambda: Box::new(lambda), argm, range })
         }
     }
