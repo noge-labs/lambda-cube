@@ -27,7 +27,6 @@ impl Context {
     pub fn rename(&mut self, name: &str) -> String {
         let new_id = self.count.fetch_add(1, Ordering::SeqCst);
         let new_name = format!("{}:{}", name, new_id);
-
         self.names.insert(name.to_string(), new_name.clone());
 
         new_name
@@ -43,11 +42,14 @@ impl Default for Context {
 // I don't like de bruijn index.
 pub fn alpha_conversion_type(context: &mut Context, ty: &Type) -> Result<Type, TypeError> {
     match ty {
-        Type::TVar(TVar { value }) => match context.names.get(value) {
-            Some(n) => Ok(Type::TVar(TVar { value: n.to_owned() })),
-            None => Err(TypeError::UndefinedVariable(value.clone())),
-        },
         Type::TInt(_) => Ok(ty.clone()),
+        Type::TVar(TVar { value }) => {
+            if let Some(n) = context.names.get(value) {
+                Ok(Type::TVar(TVar { value: n.to_owned() }))
+            } else {
+                Err(TypeError::UndefinedVariable(value.clone()))
+            }
+        }
         Type::Arrow(Arrow { left, right }) => {
             let left = alpha_conversion_type(context, left)?;
             let right = alpha_conversion_type(context, right)?;
@@ -61,7 +63,7 @@ pub fn alpha_conversion_type(context: &mut Context, ty: &Type) -> Result<Type, T
             let param = context.rename(param);
             let body = alpha_conversion_type(context, body)?;
 
-            Ok(Type::Forall(Forall { param: param, body: Box::new(body) }))
+            Ok(Type::Forall(Forall { param, body: Box::new(body) }))
         }
     }
 }
@@ -92,8 +94,8 @@ pub fn alpha_conversion_expr(context: &mut Context, ex: &Expr) -> Result<Expr, T
             let body = alpha_conversion_expr(context, &body)?;
 
             Ok(Expr::Abs(Abs {
-                param: param,
-                param_ty: param_ty,
+                param,
+                param_ty,
                 body: Box::new(body),
                 range: range.clone(),
             }))
@@ -104,7 +106,7 @@ pub fn alpha_conversion_expr(context: &mut Context, ex: &Expr) -> Result<Expr, T
 
             Ok(Expr::TApp(TApp {
                 lambda: Box::new(lambda),
-                argm: argm,
+                argm,
                 range: range.clone(),
             }))
         }
@@ -113,11 +115,33 @@ pub fn alpha_conversion_expr(context: &mut Context, ex: &Expr) -> Result<Expr, T
             let body = alpha_conversion_expr(context, &body)?;
 
             Ok(Expr::TAbs(TAbs {
-                param: param,
+                param,
                 body: Box::new(body),
                 range: range.clone(),
             }))
         }
+    }
+}
+
+pub fn equal(received: &Type, expected: &Type) -> bool {
+    match (received, expected) {
+        (Type::TVar(TVar { value: received, .. }), Type::TVar(TVar { value: expected, .. })) => {
+            received == expected
+        }
+        (Type::TInt(TInt {}), Type::TInt(TInt {})) => true,
+        (
+            Type::Arrow(Arrow { left: received_left, right: received_right }),
+            Type::Arrow(Arrow { left: expected_left, right: expected_right }),
+        ) => equal(received_left, expected_left) & equal(received_right, expected_right),
+        (
+            Type::Forall(Forall { param: received_param, body: received_body }),
+            Type::Forall(Forall { param: expected_param, body: expected_body }),
+        ) => {
+            let to = Type::TVar(TVar { value: expected_param.clone() });
+            let received_bodya = substitution(*received_body.clone(), received_param.clone(), to);
+            equal(&received_bodya, expected_body)
+        }
+        (_, _) => false,
     }
 }
 
@@ -138,7 +162,7 @@ pub fn substitution(ty: Type, from: String, to: Type) -> Type {
             } else {
                 let new_body = substitution(*body, from, to);
 
-                Type::Forall(Forall { param: param, body: Box::new(new_body) })
+                Type::Forall(Forall { param, body: Box::new(new_body) })
             }
         }
     }
@@ -169,7 +193,7 @@ pub fn infer_type(context: &mut Context, ex: &Expr) -> Result<Type, TypeError> {
             let argm_ty = infer_type(context, argm)?;
 
             match lambda_ty {
-                Type::Arrow(Arrow { left, right }) if *left == argm_ty => Ok(*right),
+                Type::Arrow(Arrow { left, right }) if equal(&left, &argm_ty) => Ok(*right),
                 Type::Arrow(Arrow { left, .. }) => Err(TypeError::Mismatch(*left, argm_ty)),
                 _ => Err(TypeError::Mismatch(lambda_ty.clone(), argm_ty)),
             }

@@ -153,7 +153,7 @@ impl fmt::Display for Forall {
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Type::TInt(_) => write!(f, "int"),
+            Type::TInt(_) => write!(f, "Int"),
             Type::TVar(tvar) => write!(f, "{}", tvar),
             Type::Arrow(arrow) => write!(f, "{}", arrow),
             Type::Forall(forall) => write!(f, "{}", forall),

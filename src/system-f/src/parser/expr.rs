@@ -127,9 +127,37 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
+    pub fn parse_let(&mut self) -> Result<Expr, ParserError> {
+        let (_, range) = consume!(self, Token::Let)?;
+        let (param, _) = consume!(self, Token::Variable(name) => name.clone())?;
+
+        consume!(self, Token::Colon)?;
+        let param_ty = self.parse_type()?;
+
+        consume!(self, Token::Equal)?;
+        let value = self.parse_expr()?;
+
+        consume!(self, Token::In)?;
+        let body = self.parse_expr()?;
+
+        let func = Expr::Abs(Abs {
+            param,
+            param_ty,
+            body: Box::new(body.clone()),
+            range: range.mix(body.range()),
+        });
+
+        Ok(Expr::App(App {
+            lambda: Box::new(func),
+            argm: Box::new(value.clone()),
+            range: range.mix(value.range()),
+        }))
+    }
+
     pub fn parse_expr(&mut self) -> Result<Expr, ParserError> {
         match self.get() {
             Token::Lambda => self.parse_abs(),
+            Token::Let => self.parse_let(),
             _ => self.parse_application(),
         }
     }
@@ -179,9 +207,8 @@ impl<'a> Parser<'a> {
     pub fn parse_type(&mut self) -> Result<Type, ParserError> {
         if let Token::LParen = self.get() {
             consume!(self, Token::LParen)?;
-
             let head = self.parse_type()?;
-            consume!(self, Token::LParen)?;
+            consume!(self, Token::RParen)?;
 
             self.parse_arrow_partial(head)
         } else {

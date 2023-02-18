@@ -41,6 +41,8 @@ impl<'a> Lexer<'a> {
         match buf {
             "lambda" => Token::Lambda,
             "forall" => Token::Forall,
+            "let" => Token::Let,
+            "in" => Token::In,
             "->" => Token::Arrow,
             _ => Token::Variable(buf.to_string()),
         }
@@ -63,6 +65,7 @@ impl<'a> Lexer<'a> {
                 }
                 'λ' => self.single_token(Token::Lambda, start),
                 '∀' => self.single_token(Token::Forall, start),
+                '=' => self.single_token(Token::Equal, start),
                 '(' => self.single_token(Token::LParen, start),
                 ')' => self.single_token(Token::RParen, start),
                 '[' => self.single_token(Token::LBracket, start),
