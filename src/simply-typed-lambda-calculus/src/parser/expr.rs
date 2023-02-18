@@ -126,7 +126,7 @@ impl<'a> Parser<'a> {
         if let Token::LParen = self.get() {
             consume!(self, Token::LParen)?;
             let head = self.parse_type()?;
-            consume!(self, Token::LParen)?;
+            consume!(self, Token::RParen)?;
 
             self.parse_arrow_partial(head)
         } else {
