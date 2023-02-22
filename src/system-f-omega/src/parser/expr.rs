@@ -4,8 +4,8 @@ use super::{
     location::Range,
     macros::{consume, match_token},
     parsetree::{
-        Abs, App, Arrow, Expr, Forall, Int, Kind, KindAlias, KindArrow, KindVar, LetAlias, Star,
-        TAbs, TApp, TInt, TVar, TyAbs, TyApp, Type, TypeAlias, Var,
+        Abs, Anno, App, Arrow, Expr, Forall, Int, Kind, KindAlias, KindArrow, KindVar, LetAlias,
+        Star, TAbs, TApp, TInt, TVar, TyAbs, TyAnno, TyApp, Type, TypeAlias, Var,
     },
     state::Parser,
 };
@@ -149,9 +149,12 @@ impl<'a> Parser<'a> {
 
         Ok(Expr::LetAlias(LetAlias {
             name,
-            anno,
+            value: Box::new(Expr::Anno(Anno {
+                expr: Box::new(value.clone()),
+                anno,
+                range: range.mix(value.range()),
+            })),
             body: Box::new(body.clone()),
-            value: Box::new(value.clone()),
             range: range.mix(body.range()),
         }))
     }
@@ -171,9 +174,8 @@ impl<'a> Parser<'a> {
 
         Ok(Expr::TypeAlias(TypeAlias {
             name,
-            anno,
+            value: Type::TyAnno(TyAnno { ty: Box::new(value.clone()), anno }),
             body: Box::new(body.clone()),
-            value: value.clone(),
             range: range.mix(body.range()),
         }))
     }

@@ -44,6 +44,13 @@ pub struct TApp {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Anno {
+    pub expr: Box<Expr>,
+    pub anno: Type,
+    pub range: Range,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct TInt {}
 
 #[derive(Debug, Clone, PartialEq)]
@@ -78,6 +85,12 @@ pub struct TyApp {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct TyAnno {
+    pub ty: Box<Type>,
+    pub anno: Kind,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Star {}
 
 #[derive(Debug, Clone, PartialEq)]
@@ -94,7 +107,6 @@ pub struct KindArrow {
 #[derive(Debug, Clone, PartialEq)]
 pub struct LetAlias {
     pub name: String,
-    pub anno: Type,
     pub value: Box<Expr>,
     pub body: Box<Expr>,
     pub range: Range,
@@ -103,7 +115,6 @@ pub struct LetAlias {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeAlias {
     pub name: String,
-    pub anno: Kind,
     pub value: Type,
     pub body: Box<Expr>,
     pub range: Range,
@@ -132,6 +143,7 @@ pub enum Type {
     Forall(Forall),
     TyAbs(TyAbs),
     TyApp(TyApp),
+    TyAnno(TyAnno),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -145,11 +157,13 @@ pub enum Expr {
     LetAlias(LetAlias),
     TypeAlias(TypeAlias),
     KindAlias(KindAlias),
+    Anno(Anno),
 }
 
 impl Expr {
     pub fn range(&self) -> Range {
         match self {
+            Expr::Anno(Anno { range, .. }) => range.clone(),
             Expr::Int(Int { range, .. }) => range.clone(),
             Expr::Var(Var { range, .. }) => range.clone(),
             Expr::Abs(Abs { range, .. }) => range.clone(),
@@ -232,6 +246,12 @@ impl fmt::Display for TyApp {
     }
 }
 
+impl fmt::Display for TyAnno {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} = {}", self.ty, self.anno)
+    }
+}
+
 impl fmt::Display for Star {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "*")
@@ -265,27 +285,25 @@ impl fmt::Display for Kind {
 
 impl fmt::Display for LetAlias {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "let {}: {} = {} in\n{}",
-            self.name, self.anno, self.value, self.body
-        )
+        write!(f, "let {}: {} in\n{}", self.name, self.value, self.body)
     }
 }
 
 impl fmt::Display for TypeAlias {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "type {}: {} = {} in\n{}",
-            self.name, self.anno, self.value, self.body
-        )
+        write!(f, "type {}: {} in\n{}", self.name, self.value, self.body)
     }
 }
 
 impl fmt::Display for KindAlias {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "kind {} = {} in\n{}", self.name, self.value, self.body)
+    }
+}
+
+impl fmt::Display for Anno {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} = {}", self.expr, self.anno)
     }
 }
 
@@ -298,6 +316,7 @@ impl fmt::Display for Type {
             Type::Forall(forall) => write!(f, "{}", forall),
             Type::TyAbs(tyabs) => write!(f, "{}", tyabs),
             Type::TyApp(tyapp) => write!(f, "{}", tyapp),
+            Type::TyAnno(anno) => write!(f, "{}", anno),
         }
     }
 }
@@ -314,6 +333,7 @@ impl fmt::Display for Expr {
             Expr::LetAlias(alias) => write!(f, "{}", alias),
             Expr::TypeAlias(alias) => write!(f, "{}", alias),
             Expr::KindAlias(alias) => write!(f, "{}", alias),
+            Expr::Anno(anno) => write!(f, "{}", anno),
         }
     }
 }
