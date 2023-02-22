@@ -3,7 +3,7 @@ use super::{
     lexer::tokens::Token,
     location::Range,
     macros::{consume, match_token},
-    parsetree::{Abs, App, Arrow, Expr, Forall, Int, TAbs, TApp, TInt, TVar, Type, Var},
+    parsetree::{Abs, App, Expr, Int, TAbs, TApp, Type, Var},
     state::Parser,
 };
 
@@ -172,11 +172,11 @@ impl<'a> Parser<'a> {
             }
             Token::TInt => {
                 consume!(self, Token::TInt)?;
-                Ok(Type::TInt(TInt {}))
+                Ok(Type::TInt)
             }
             Token::TVar(_) => {
                 let (token, _) = consume!(self, Token::TVar(var) => var.clone())?;
-                Ok(Type::TVar(TVar { value: token }))
+                Ok(Type::TVar { value: token })
             }
             Token::Forall => {
                 consume!(self, Token::Forall)?;
@@ -184,7 +184,7 @@ impl<'a> Parser<'a> {
                 consume!(self, Token::Dot)?;
                 let body = self.parse_type()?;
 
-                Ok(Type::Forall(Forall { param: token, body: Box::new(body) }))
+                Ok(Type::Forall { param: token, body: Box::new(body) })
             }
             _ => self.fail(),
         }
@@ -195,10 +195,10 @@ impl<'a> Parser<'a> {
             consume!(self, Token::Arrow)?;
             let body = self.parse_type()?;
 
-            Ok(Type::Arrow(Arrow {
+            Ok(Type::Arrow {
                 left: Box::new(head.clone()),
                 right: Box::new(body.clone()),
-            }))
+            })
         } else {
             Ok(head)
         }

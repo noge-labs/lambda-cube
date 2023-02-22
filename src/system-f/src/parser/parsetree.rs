@@ -7,13 +7,13 @@ pub struct Int {
     pub range: Range,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Var {
     pub value: String,
     pub range: Range,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Abs {
     pub param: String,
     pub param_ty: Type,
@@ -21,21 +21,21 @@ pub struct Abs {
     pub range: Range,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct App {
     pub lambda: Box<Expr>,
     pub argm: Box<Expr>,
     pub range: Range,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TAbs {
     pub param: String,
     pub body: Box<Expr>,
     pub range: Range,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TApp {
     pub lambda: Box<Expr>,
     pub argm: Type,
@@ -43,34 +43,14 @@ pub struct TApp {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TInt {}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct TVar {
-    pub value: String,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Forall {
-    pub param: String,
-    pub body: Box<Type>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Arrow {
-    pub left: Box<Type>,
-    pub right: Box<Type>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub enum Type {
-    TInt(TInt),
-    TVar(TVar),
-    Arrow(Arrow),
-    Forall(Forall),
+    TInt,
+    TVar { value: String },
+    Arrow { left: Box<Type>, right: Box<Type> },
+    Forall { param: String, body: Box<Type> },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Int(Int),
     Var(Var),
@@ -129,34 +109,13 @@ impl fmt::Display for TApp {
     }
 }
 
-impl fmt::Display for Arrow {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self.left {
-            Type::Arrow(_) => write!(f, "({}) -> {}", self.left, self.right),
-            _ => write!(f, "{} -> {}", self.left, self.right),
-        }
-    }
-}
-
-impl fmt::Display for TVar {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.value)
-    }
-}
-
-impl fmt::Display for Forall {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "∀{}. {}", self.param, self.body)
-    }
-}
-
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Type::TInt(_) => write!(f, "Int"),
-            Type::TVar(tvar) => write!(f, "{}", tvar),
-            Type::Arrow(arrow) => write!(f, "{}", arrow),
-            Type::Forall(forall) => write!(f, "{}", forall),
+            Type::TInt => write!(f, "Int"),
+            Type::TVar { value } => write!(f, "{}", value),
+            Type::Arrow { left, right } => write!(f, "({} -> {})", left, right),
+            Type::Forall { param, body } => write!(f, "∀{}. {}", param, body),
         }
     }
 }

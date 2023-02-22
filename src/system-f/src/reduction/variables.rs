@@ -1,4 +1,4 @@
-use crate::parser::parsetree::{Abs, App, Arrow, Expr, Forall, Int, TAbs, TApp, TVar, Type, Var};
+use crate::parser::parsetree::{Abs, App, Expr, Int, TAbs, TApp, Type, Var};
 use std::collections::HashSet;
 
 pub fn free_variables(expr: Expr) -> HashSet<String> {
@@ -45,18 +45,33 @@ pub fn substitution(expr: Expr, from: String, to: Expr) -> Expr {
 
             if cond {
                 let body = substitution(*abs.body, from, to);
-                return Expr::Abs(Abs { body: Box::new(body), ..abs });
+                return Expr::Abs(Abs {
+                    body: Box::new(body),
+                    ..abs
+                });
             }
 
             Expr::Abs(abs)
         }
         Expr::TAbs(TAbs { param, body, range }) => {
             let body = substitution(*body, from, to);
-            Expr::TAbs(TAbs { param, body: Box::new(body), range })
+            Expr::TAbs(TAbs {
+                param,
+                body: Box::new(body),
+                range,
+            })
         }
-        Expr::TApp(TApp { lambda, argm, range }) => {
+        Expr::TApp(TApp {
+            lambda,
+            argm,
+            range,
+        }) => {
             let lambda = substitution(*lambda, from, to);
-            Expr::TApp(TApp { lambda: Box::new(lambda), argm, range })
+            Expr::TApp(TApp {
+                lambda: Box::new(lambda),
+                argm,
+                range,
+            })
         }
     }
 }
@@ -99,16 +114,17 @@ pub fn type_substitution(expr: &Expr, from: &str, to: &Type) -> Expr {
 
 pub fn type_type_substitute(ty: &Type, from: &str, to: &Type) -> Type {
     match ty {
-        Type::TVar(TVar { value }) if value == from => to.clone(),
-        Type::Arrow(Arrow { left, right }) => Type::Arrow(Arrow {
+        Type::TVar { value } if value == from => to.clone(),
+        Type::TVar { .. } => ty.clone(),
+        Type::Arrow { left, right } => Type::Arrow {
             left: Box::new(type_type_substitute(left, from, to)),
             right: Box::new(type_type_substitute(right, from, to)),
-        }),
-        Type::Forall(Forall { param, .. }) if param == from => ty.clone(),
-        Type::Forall(Forall { param, body }) => Type::Forall(Forall {
+        },
+        Type::Forall { param, .. } if param == from => ty.clone(),
+        Type::Forall { param, body } => Type::Forall {
             param: param.clone(),
             body: Box::new(type_type_substitute(body, from, to)),
-        }),
+        },
         _ => ty.clone(),
     }
 }
