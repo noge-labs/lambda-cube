@@ -45,33 +45,18 @@ pub fn substitution(expr: Expr, from: String, to: Expr) -> Expr {
 
             if cond {
                 let body = substitution(*abs.body, from, to);
-                return Expr::Abs(Abs {
-                    body: Box::new(body),
-                    ..abs
-                });
+                return Expr::Abs(Abs { body: Box::new(body), ..abs });
             }
 
             Expr::Abs(abs)
         }
         Expr::TAbs(TAbs { param, body, range }) => {
             let body = substitution(*body, from, to);
-            Expr::TAbs(TAbs {
-                param,
-                body: Box::new(body),
-                range,
-            })
+            Expr::TAbs(TAbs { param, body: Box::new(body), range })
         }
-        Expr::TApp(TApp {
-            lambda,
-            argm,
-            range,
-        }) => {
+        Expr::TApp(TApp { lambda, argm, range }) => {
             let lambda = substitution(*lambda, from, to);
-            Expr::TApp(TApp {
-                lambda: Box::new(lambda),
-                argm,
-                range,
-            })
+            Expr::TApp(TApp { lambda: Box::new(lambda), argm, range })
         }
     }
 }

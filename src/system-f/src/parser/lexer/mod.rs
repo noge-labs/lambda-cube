@@ -65,6 +65,7 @@ impl<'a> Lexer<'a> {
                 }
                 'λ' => self.single_token(Token::Lambda, start),
                 '∀' => self.single_token(Token::Forall, start),
+                'Λ' => self.single_token(Token::Forall, start),
                 '=' => self.single_token(Token::Equal, start),
                 '(' => self.single_token(Token::LParen, start),
                 ')' => self.single_token(Token::RParen, start),

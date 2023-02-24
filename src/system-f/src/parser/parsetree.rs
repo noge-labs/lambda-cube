@@ -7,13 +7,13 @@ pub struct Int {
     pub range: Range,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Var {
     pub value: String,
     pub range: Range,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Abs {
     pub param: String,
     pub param_ty: Type,
@@ -21,21 +21,21 @@ pub struct Abs {
     pub range: Range,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct App {
     pub lambda: Box<Expr>,
     pub argm: Box<Expr>,
     pub range: Range,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct TAbs {
     pub param: String,
     pub body: Box<Expr>,
     pub range: Range,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct TApp {
     pub lambda: Box<Expr>,
     pub argm: Type,
@@ -50,7 +50,7 @@ pub enum Type {
     Forall { param: String, body: Box<Type> },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Int(Int),
     Var(Var),

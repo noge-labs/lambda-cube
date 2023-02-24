@@ -52,19 +52,13 @@ pub fn alpha_conversion_type(context: &mut Context, ty: &Type) -> Result<Type, T
             let left = alpha_conversion_type(context, left)?;
             let right = alpha_conversion_type(context, right)?;
 
-            Ok(Type::Arrow {
-                left: Box::new(left),
-                right: Box::new(right),
-            })
+            Ok(Type::Arrow { left: Box::new(left), right: Box::new(right) })
         }
         Type::Forall { param, body } => {
             let param = context.rename(param);
             let body = alpha_conversion_type(context, body)?;
 
-            Ok(Type::Forall {
-                param,
-                body: Box::new(body),
-            })
+            Ok(Type::Forall { param, body: Box::new(body) })
         }
     }
 }
@@ -74,10 +68,7 @@ pub fn alpha_conversion_expr(context: &mut Context, ex: &Expr) -> Result<Expr, T
         Expr::Int(Int { .. }) => Ok(ex.clone()),
         Expr::Var(var) => {
             if let Some(n) = context.names.get(&var.value) {
-                Ok(Expr::Var(Var {
-                    value: n.clone(),
-                    ..var.clone()
-                }))
+                Ok(Expr::Var(Var { value: n.clone(), ..var.clone() }))
             } else {
                 Err(TypeError::UndefinedVariable(var.value.clone()))
             }
@@ -130,37 +121,18 @@ pub fn alpha_conversion_expr(context: &mut Context, ex: &Expr) -> Result<Expr, T
 pub fn equal(received: &Type, expected: &Type) -> bool {
     match (received, expected) {
         (Type::TInt, Type::TInt) => true,
+        (Type::TVar { value: received, .. }, Type::TVar { value: expected, .. }) => {
+            received == expected
+        }
         (
-            Type::TVar {
-                value: received, ..
-            },
-            Type::TVar {
-                value: expected, ..
-            },
-        ) => received == expected,
-        (
-            Type::Arrow {
-                left: received_left,
-                right: received_right,
-            },
-            Type::Arrow {
-                left: expected_left,
-                right: expected_right,
-            },
+            Type::Arrow { left: received_left, right: received_right },
+            Type::Arrow { left: expected_left, right: expected_right },
         ) => equal(received_left, expected_left) & equal(received_right, expected_right),
         (
-            Type::Forall {
-                param: received_param,
-                body: received_body,
-            },
-            Type::Forall {
-                param: expected_param,
-                body: expected_body,
-            },
+            Type::Forall { param: received_param, body: received_body },
+            Type::Forall { param: expected_param, body: expected_body },
         ) => {
-            let to = Type::TVar {
-                value: expected_param.clone(),
-            };
+            let to = Type::TVar { value: expected_param.clone() };
             let received_body = substitution(received_body, received_param, &to);
             equal(&received_body, expected_body)
         }
@@ -177,19 +149,13 @@ pub fn substitution(ty: &Type, from: &str, to: &Type) -> Type {
             let left = substitution(left, from, to);
             let right = substitution(right, from, to);
 
-            Type::Arrow {
-                left: Box::new(left),
-                right: Box::new(right),
-            }
+            Type::Arrow { left: Box::new(left), right: Box::new(right) }
         }
         Type::Forall { param, .. } if param == from => ty.clone(),
         Type::Forall { param, body } => {
             let body = substitution(body, from, to);
 
-            Type::Forall {
-                param: param.clone(),
-                body: Box::new(body),
-            }
+            Type::Forall { param: param.clone(), body: Box::new(body) }
         }
     }
 }
@@ -229,10 +195,7 @@ pub fn infer_type(context: &mut Context, ex: &Expr) -> Result<Type, TypeError> {
         Expr::TAbs(tabs) => {
             let body_ty = infer_type(context, &tabs.body)?;
 
-            Ok(Type::Forall {
-                param: tabs.param.clone(),
-                body: Box::new(body_ty),
-            })
+            Ok(Type::Forall { param: tabs.param.clone(), body: Box::new(body_ty) })
         }
         Expr::TApp(tapp) => {
             let lambda_ty = infer_type(context, &tapp.lambda)?;
