@@ -1,0 +1,3 @@
+type Id: * = ∀A: *. (A -> A) in
+let id: Id = λA: *. λx: A. x in
+id [Int] 69420

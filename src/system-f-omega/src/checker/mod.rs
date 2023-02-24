@@ -1,227 +1,267 @@
-pub mod error;
+pub mod context;
+pub mod conversion;
+pub mod equivalence;
+pub mod errors;
+pub mod normalize;
+pub mod typedtree;
 
-use std::sync::atomic::AtomicUsize;
-use std::{collections::HashMap, sync::atomic::Ordering};
+use self::context::{Context, ContextExpr, ContextType};
+use self::equivalence::{check_kind_equiv, check_type_equiv};
+use self::errors::TypeError;
+use self::normalize::normalize;
+use self::typedtree as T;
 
-use crate::checker::error::TypeError;
 use crate::parser::parsetree::{
-    Abs, App, Arrow, Expr, Forall, Int, TAbs, TApp, TInt, TVar, Type, Var,
+    Abs, Anno, App, Arrow, Expr, Forall, Int, Kind, KindAlias, KindArrow, KindVar, LetAlias, Star,
+    TAbs, TApp, TInt, TVar, TyAbs, TyAnno, TyApp, Type, TypeAlias, Var,
 };
+use crate::parser::symbol::Symbol;
 
-#[derive(Debug)]
-pub struct Context {
-    pub types: HashMap<String, Type>,
-    pub names: HashMap<String, String>,
-    pub count: AtomicUsize,
-}
-
-impl Context {
-    pub fn new() -> Context {
-        Context {
-            types: HashMap::new(),
-            names: HashMap::new(),
-            count: AtomicUsize::new(0),
+pub fn transl_kind(context: &mut Context, kind: &Kind) -> T::Kind {
+    match kind {
+        Kind::Star(Star {}) => T::Kind::Star,
+        Kind::KindVar(KindVar { value }) => match context.get_kind(&value) {
+            Ok(kind) => transl_kind(context, &kind),
+            Err(err) => panic!("{}", err),
+        },
+        Kind::KindArrow(KindArrow { left, right }) => {
+            let left = transl_kind(context, left);
+            let right = transl_kind(context, right);
+            T::Kind::KindArrow { left: Box::new(left), right: Box::new(right) }
         }
     }
-
-    pub fn rename(&mut self, name: &str) -> String {
-        let new_id = self.count.fetch_add(1, Ordering::SeqCst);
-        let new_name = format!("{}:{}", name, new_id);
-        self.names.insert(name.to_string(), new_name.clone());
-
-        new_name
-    }
 }
 
-impl Default for Context {
-    fn default() -> Context {
-        Context::new()
-    }
+pub fn substitution(ty: T::Annoted, from: Symbol, to: T::Type) -> T::Annoted {
+    let desc = match *ty.desc {
+        T::Type::Int => T::Type::Int,
+        T::Type::Var { value } if value == from => to,
+        T::Type::Var { value } => T::Type::Var { value },
+        T::Type::Arrow { left, right } => {
+            let left = substitution(left, from.clone(), to.clone());
+            let right = substitution(right, from, to);
+
+            T::Type::Arrow { left, right }
+        }
+        T::Type::Forall { param, param_ty, body } if param == from => {
+            T::Type::Forall { param, param_ty, body }
+        }
+        T::Type::Forall { param, param_ty, body } => {
+            let body = substitution(body, from, to);
+            T::Type::Forall { param, param_ty, body }
+        }
+        T::Type::TyAbs { param, param_ty, body } if param == from => {
+            T::Type::Forall { param, param_ty, body }
+        }
+        T::Type::TyAbs { param, param_ty, body } => {
+            let body = substitution(body, from, to);
+            T::Type::Forall { param, param_ty, body }
+        }
+        T::Type::TyApp { lambda, argm } => {
+            let lambda = substitution(lambda, from.clone(), to.clone());
+            let argm = substitution(argm, from, to);
+
+            T::Type::TyApp { lambda, argm }
+        }
+    };
+
+    T::Annoted { desc: Box::new(desc), kind: ty.kind }
 }
 
-// I don't like de bruijn index.
-pub fn alpha_conversion_type(context: &mut Context, ty: &Type) -> Result<Type, TypeError> {
+pub fn infer_type(context: &mut Context, ty: Type) -> Result<T::Annoted, TypeError> {
     match ty {
-        Type::TInt(_) => Ok(ty.clone()),
+        Type::TInt(TInt {}) => Ok(T::Annoted { desc: Box::new(T::Type::Int), kind: T::Kind::Star }),
+        Type::TyAnno(TyAnno { ty, anno, .. }) => {
+            let annotation = transl_kind(context, &anno.clone());
+            check_type(context, *ty, annotation)
+        }
         Type::TVar(TVar { value }) => {
-            if let Some(n) = context.names.get(value) {
-                Ok(Type::TVar(TVar { value: n.to_owned() }))
-            } else {
-                Err(TypeError::UndefinedVariable(value.clone()))
+            let expr = context.get_type(&value);
+
+            match expr {
+                Err(error) => Err(error),
+                Ok(ContextType::Alias(alias)) => infer_type(context, alias),
+                Ok(ContextType::Value(kind)) => {
+                    Ok(T::Annoted { desc: Box::new(T::Type::Var { value }), kind: kind })
+                }
             }
+        }
+        Type::Forall(Forall { param, param_ty, body }) => {
+            let param_ty = transl_kind(context, &param_ty);
+            context.add_type(&param, param_ty.clone());
+            let body = check_type(context, *body, T::Kind::Star)?;
+
+            Ok(T::Annoted {
+                desc: Box::new(T::Type::Forall { param, param_ty, body }),
+                kind: T::Kind::Star,
+            })
         }
         Type::Arrow(Arrow { left, right }) => {
-            let left = alpha_conversion_type(context, left)?;
-            let right = alpha_conversion_type(context, right)?;
+            let left = check_type(context, *left, T::Kind::Star)?;
+            let right = check_type(context, *right, T::Kind::Star)?;
 
-            Ok(Type::Arrow(Arrow {
-                left: Box::new(left),
-                right: Box::new(right),
-            }))
+            Ok(T::Annoted {
+                desc: Box::new(T::Type::Arrow { left, right }),
+                kind: T::Kind::Star,
+            })
         }
-        Type::Forall(Forall { param, body }) => {
-            let param = context.rename(param);
-            let body = alpha_conversion_type(context, body)?;
+        Type::TyAbs(TyAbs { param, param_ty, body }) => {
+            let param_ty = transl_kind(context, &param_ty);
+            context.add_type(&param, param_ty.clone());
+            let body = check_type(context, *body, T::Kind::Star)?;
 
-            Ok(Type::Forall(Forall { param, body: Box::new(body) }))
+            Ok(T::Annoted {
+                desc: Box::new(T::Type::TyAbs {
+                    param,
+                    param_ty: param_ty.clone(),
+                    body: body.clone(),
+                }),
+                kind: T::Kind::KindArrow {
+                    left: Box::new(param_ty),
+                    right: Box::new(body.kind),
+                },
+            })
         }
-    }
-}
+        Type::TyApp(TyApp { lambda, argm }) => {
+            let lambda = infer_type(context, *lambda)?;
 
-pub fn alpha_conversion_expr(context: &mut Context, ex: &Expr) -> Result<Expr, TypeError> {
-    match ex {
-        Expr::Int(Int { .. }) => Ok(ex.clone()),
-        Expr::Var(Var { value, range }) => {
-            if let Some(n) = context.names.get(value) {
-                Ok(Expr::Var(Var { value: n.to_owned(), range: range.clone() }))
-            } else {
-                Err(TypeError::UndefinedVariable(value.clone()))
-            }
-        }
-        Expr::App(App { lambda, argm, range }) => {
-            let lambda = alpha_conversion_expr(context, lambda)?;
-            let argm = alpha_conversion_expr(context, argm)?;
+            match lambda.clone().kind {
+                T::Kind::Star => Err(TypeError::TypeClash),
+                T::Kind::KindArrow { left, right } => {
+                    let argm = check_type(context, *argm, *left)?;
 
-            Ok(Expr::App(App {
-                lambda: Box::new(lambda),
-                argm: Box::new(argm),
-                range: range.clone(),
-            }))
-        }
-        Expr::Abs(Abs { param, body, param_ty, range }) => {
-            let param = context.rename(param);
-            let param_ty = alpha_conversion_type(context, param_ty)?;
-            let body = alpha_conversion_expr(context, &body)?;
-
-            Ok(Expr::Abs(Abs {
-                param,
-                param_ty,
-                body: Box::new(body),
-                range: range.clone(),
-            }))
-        }
-        Expr::TApp(TApp { lambda, argm, range }) => {
-            let lambda = alpha_conversion_expr(context, lambda)?;
-            let argm = alpha_conversion_type(context, argm)?;
-
-            Ok(Expr::TApp(TApp {
-                lambda: Box::new(lambda),
-                argm,
-                range: range.clone(),
-            }))
-        }
-        Expr::TAbs(TAbs { param, body, range }) => {
-            let param = context.rename(param);
-            let body = alpha_conversion_expr(context, &body)?;
-
-            Ok(Expr::TAbs(TAbs {
-                param,
-                body: Box::new(body),
-                range: range.clone(),
-            }))
-        }
-    }
-}
-
-pub fn equal(received: &Type, expected: &Type) -> bool {
-    match (received, expected) {
-        (Type::TVar(TVar { value: received, .. }), Type::TVar(TVar { value: expected, .. })) => {
-            received == expected
-        }
-        (Type::TInt(TInt {}), Type::TInt(TInt {})) => true,
-        (
-            Type::Arrow(Arrow { left: received_left, right: received_right }),
-            Type::Arrow(Arrow { left: expected_left, right: expected_right }),
-        ) => equal(received_left, expected_left) & equal(received_right, expected_right),
-        (
-            Type::Forall(Forall { param: received_param, body: received_body }),
-            Type::Forall(Forall { param: expected_param, body: expected_body }),
-        ) => {
-            let to = Type::TVar(TVar { value: expected_param.clone() });
-            let received_bodya = substitution(*received_body.clone(), received_param.clone(), to);
-            equal(&received_bodya, expected_body)
-        }
-        (_, _) => false,
-    }
-}
-
-pub fn substitution(ty: Type, from: String, to: Type) -> Type {
-    match ty {
-        Type::TInt(TInt {}) => Type::TInt(TInt {}),
-        Type::TVar(TVar { value }) if value == from => to,
-        Type::TVar(TVar { value }) => Type::TVar(TVar { value }),
-        Type::Arrow(Arrow { left, right }) => {
-            let left = substitution(*left, from.clone(), to.clone());
-            let right = substitution(*right, from, to);
-
-            Type::Arrow(Arrow { left: Box::new(left), right: Box::new(right) })
-        }
-        Type::Forall(Forall { param, body }) => {
-            if param == from {
-                return Type::Forall(Forall { param, body });
-            } else {
-                let new_body = substitution(*body, from, to);
-
-                Type::Forall(Forall { param, body: Box::new(new_body) })
+                    Ok(T::Annoted {
+                        desc: Box::new(T::Type::TyApp { lambda, argm }),
+                        kind: *right,
+                    })
+                }
             }
         }
     }
 }
 
-pub fn infer_type(context: &mut Context, ex: &Expr) -> Result<Type, TypeError> {
-    match ex {
-        Expr::Int(Int { .. }) => Ok(Type::TInt(TInt {})),
+pub fn infer_expr(context: &mut Context, ex: &Expr) -> Result<T::Annoted, TypeError> {
+    match ex.clone() {
+        Expr::Anno(Anno { expr, anno, .. }) => {
+            let annotation = check_type(context, anno.clone(), T::Kind::Star)?;
+
+            check_expr(context, *expr.clone(), annotation.clone())?;
+            Ok(annotation)
+        }
+        Expr::LetAlias(LetAlias { name, value, body, .. }) => {
+            context.add_expr_alias(&name, *value);
+            infer_expr(context, &body.clone())
+        }
+        Expr::TypeAlias(TypeAlias { name, value, body, .. }) => {
+            context.add_type_alias(&name, value.clone());
+            infer_expr(context, &body.clone())
+        }
+        Expr::KindAlias(KindAlias { name, value, body, .. }) => {
+            context.add_kind_alias(&name, value);
+            infer_expr(context, &body)
+        }
+        Expr::Int(Int { .. }) => {
+            Ok(T::Annoted { desc: Box::new(T::Type::Int), kind: T::Kind::Star })
+        }
         Expr::Var(Var { value, .. }) => {
-            if let Some(ty) = context.types.get(value) {
-                Ok(ty.clone())
-            } else {
-                Err(TypeError::UndefinedVariable(value.clone()))
+            let expr = context.get_expr(&value);
+
+            match expr {
+                Ok(ContextExpr::Value(value)) => Ok(value),
+                Ok(ContextExpr::Alias(alias)) => infer_expr(context, &alias),
+                Err(error) => Err(error),
             }
         }
         Expr::Abs(Abs { param, param_ty, body, .. }) => {
-            context.types.insert(param.clone(), param_ty.clone());
+            let param_ty = check_type(context, param_ty, T::Kind::Star)?;
+            context.add_expr(&param, param_ty.clone());
+            let body_ty = infer_expr(context, &body.clone())?;
 
-            let body_ty = infer_type(context, body)?;
-
-            Ok(Type::Arrow(Arrow {
-                left: Box::new(param_ty.clone()),
-                right: Box::new(body_ty),
-            }))
+            Ok(T::Annoted {
+                desc: Box::new(T::Type::Arrow { left: param_ty, right: body_ty }),
+                kind: T::Kind::Star,
+            })
         }
         Expr::App(App { lambda, argm, .. }) => {
-            let lambda_ty = infer_type(context, &lambda)?;
-            let argm_ty = infer_type(context, argm)?;
+            let lambda_ty = infer_expr(context, &lambda)?;
+            let forall_ty = normalize(context, lambda_ty);
 
-            match lambda_ty {
-                Type::Arrow(Arrow { left, right }) if equal(&left, &argm_ty) => Ok(*right),
-                Type::Arrow(Arrow { left, .. }) => Err(TypeError::Mismatch(*left, argm_ty)),
-                _ => Err(TypeError::Mismatch(lambda_ty.clone(), argm_ty)),
+            match *forall_ty.desc {
+                T::Type::Arrow { left, right } => {
+                    check_expr(context, *argm, left)?;
+                    Ok(right)
+                }
+                _ => Err(TypeError::TypeNotAArrow(*forall_ty.desc)),
             }
         }
-        Expr::TAbs(TAbs { param, body, .. }) => {
-            let body_ty = infer_type(context, body)?;
+        Expr::TAbs(TAbs { param, param_ty, body, .. }) => {
+            let kind = transl_kind(context, &param_ty);
+            context.add_type(&param, kind.clone());
+            let body = infer_expr(context, &body)?;
 
-            Ok(Type::Forall(Forall {
-                param: param.clone(),
-                body: Box::new(body_ty),
-            }))
+            Ok(T::Annoted {
+                desc: Box::new(T::Type::Forall { param, param_ty: kind, body }),
+                kind: T::Kind::Star,
+            })
         }
         Expr::TApp(TApp { lambda, argm, .. }) => {
-            let lambda_ty = infer_type(context, &lambda)?;
+            let lambda_ty = infer_expr(context, &lambda)?;
+            let forall_ty = normalize(context, lambda_ty);
 
-            if let Type::Forall(Forall { param, body }) = lambda_ty {
-                Ok(substitution(*body, param.clone(), argm.clone()))
-            } else {
-                Err(TypeError::UnexpectedType(lambda_ty))
+            match *forall_ty.desc {
+                T::Type::Forall { param, param_ty, body } => {
+                    let argm = check_type(context, argm, param_ty)?;
+                    Ok(substitution(body, param.clone(), *argm.desc))
+                }
+                _ => Err(TypeError::TypeNotAForall(*forall_ty.desc)),
             }
         }
     }
 }
 
-pub fn type_of(ex: Expr) -> Result<Type, TypeError> {
-    let mut context = Context::default();
-    let alpha_terms = alpha_conversion_expr(&mut context, &ex)?;
-    let typed_terms = infer_type(&mut context, &alpha_terms)?;
+pub fn check_type(
+    context: &mut Context,
+    ty: Type,
+    expected: T::Kind,
+) -> Result<T::Annoted, TypeError> {
+    let received = infer_type(context, ty)?;
+    check_kind_equiv(&received.kind, &expected)?;
 
-    Ok(typed_terms)
+    Ok(received)
+}
+
+pub fn check_expr(context: &mut Context, ex: Expr, expected: T::Annoted) -> Result<(), TypeError> {
+    let forall_ty = normalize(context, expected.clone());
+
+    match (ex.clone(), *forall_ty.desc) {
+        (
+            Expr::TAbs(TAbs { param: rp, param_ty: rt, body: rb, .. }),
+            T::Type::Forall { param: ep, param_ty: ek, body: bk },
+        ) => {
+            let rt = transl_kind(context, &rt);
+            check_kind_equiv(&rt, &ek)?;
+            let ret = substitution(bk, ep, T::Type::Var { value: rp.clone() });
+            context.add_type(&rp, ek);
+            check_expr(context, *rb, ret)
+        }
+        (Expr::Abs(Abs { param, param_ty, body, .. }), T::Type::Arrow { left, right }) => {
+            let received_param = check_type(context, param_ty, T::Kind::Star)?;
+            check_type_equiv(&received_param, &left)?;
+            context.add_expr(&param, left);
+
+            check_expr(context, *body, right)
+        }
+        (expr, _) => {
+            let received = infer_expr(context, &expr)?;
+            check_type_equiv(&received, &expected)
+        }
+    }
+}
+
+pub fn type_of(ex: Expr) -> Result<T::Annoted, TypeError> {
+    let mut context = Context::default();
+    let typed_terms = infer_expr(&mut context, &ex)?;
+    let norml_terms = normalize(&mut context, typed_terms);
+
+    Ok(norml_terms)
 }

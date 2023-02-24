@@ -1,24 +1,20 @@
-// use system_f_omega::checker;
+use system_f_omega::checker;
+use system_f_omega::checker::conversion::{alpha_conversion_expr, Names};
 use system_f_omega::parser;
 // use system_f_omega::reduction;
 
 fn main() {
-    // type True : * -> * -> * = λt: *. λf: *. t in
-    // type False : * -> * -> * = λt: *. λf: *. f in
-    // type If: λpred: (* -> * -> *). λt: *. λf: * = pred t f in
-
     let input = r"
-        kind Bool = * -> * -> * in
-        type True: Bool = (λT: *. (λF: *. T)) in
-        type False: Bool = (λT: *. (λF: *. F)) in
-        let true: True = λt: (λA: *. A). λf: (λA: *. A). t in
-        true
+        type Id: * = ∀A: *. (A -> A) in
+        let id: Id = λA: *. λx: A. x in
+        id [Int] 69420
     ";
 
     let expr_parsed = parser::from_string(input).unwrap();
-    println!("{}", expr_parsed)
-    // let expr_typed = checker::type_of(expr_parsed.clone()).unwrap();
-    // let expr_reduced = reduction::reduce(reduction::Norm::NOR, expr_parsed, None);
+    let mut context = Names::new();
+    let alpha_terms = alpha_conversion_expr(&mut context, &expr_parsed).unwrap();
 
-    // println!("{} : {}", expr_reduced, expr_typed)
+    let expr_typed = checker::type_of(alpha_terms.clone()).unwrap();
+
+    println!("{}", expr_typed)
 }

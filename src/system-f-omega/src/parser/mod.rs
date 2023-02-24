@@ -5,6 +5,7 @@ pub mod location;
 pub mod macros;
 pub mod parsetree;
 pub mod state;
+pub mod symbol;
 
 use lexer::state::*;
 

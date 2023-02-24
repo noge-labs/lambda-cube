@@ -8,13 +8,15 @@ use super::{
         Star, TAbs, TApp, TInt, TVar, TyAbs, TyAnno, TyApp, Type, TypeAlias, Var,
     },
     state::Parser,
+    symbol::Symbol,
 };
 
 impl<'a> Parser<'a> {
     pub fn parse_variable_expr(&mut self) -> Result<Expr, ParserError> {
         let (token, range) = consume!(self, Token::Variable(var) => var.clone())?;
+        let symbol = Symbol::new(token);
 
-        Ok(Expr::Var(Var { value: token, range }))
+        Ok(Expr::Var(Var { value: symbol, range }))
     }
 
     pub fn parse_number_expr(&mut self) -> Result<Expr, ParserError> {
@@ -34,6 +36,7 @@ impl<'a> Parser<'a> {
 
     pub fn parse_abs_expr(&mut self, range: Range) -> Result<Expr, ParserError> {
         let (param, _) = consume!(self, Token::Variable(var) => var.clone())?;
+        let symbol = Symbol::new(param);
 
         consume!(self, Token::Colon)?;
         let param_type = self.parse_type()?;
@@ -43,7 +46,7 @@ impl<'a> Parser<'a> {
         let endr = body.range();
 
         Ok(Expr::Abs(Abs {
-            param,
+            param: symbol,
             param_ty: param_type,
             body: Box::new(body),
             range: range.mix(endr),
@@ -52,6 +55,7 @@ impl<'a> Parser<'a> {
 
     pub fn parse_abs_type(&mut self, range: Range) -> Result<Expr, ParserError> {
         let (param, _) = consume!(self, Token::TVar(var) => var.clone())?;
+        let symbol = Symbol::new(param);
 
         consume!(self, Token::Colon)?;
         let param_type = self.parse_kind()?;
@@ -61,7 +65,7 @@ impl<'a> Parser<'a> {
         let endr = body.range();
 
         Ok(Expr::TAbs(TAbs {
-            param,
+            param: symbol,
             param_ty: param_type,
             body: Box::new(body),
             range: range.mix(endr),
@@ -137,6 +141,7 @@ impl<'a> Parser<'a> {
     pub fn parse_let_alias(&mut self) -> Result<Expr, ParserError> {
         let (_, range) = consume!(self, Token::Let)?;
         let (name, _) = consume!(self, Token::Variable(name) => name.clone())?;
+        let symbol = Symbol::new(name);
 
         consume!(self, Token::Colon)?;
         let anno = self.parse_type()?;
@@ -148,7 +153,7 @@ impl<'a> Parser<'a> {
         let body = self.parse_expr()?;
 
         Ok(Expr::LetAlias(LetAlias {
-            name,
+            name: symbol,
             value: Box::new(Expr::Anno(Anno {
                 expr: Box::new(value.clone()),
                 anno,
@@ -162,6 +167,7 @@ impl<'a> Parser<'a> {
     pub fn parse_type_alias(&mut self) -> Result<Expr, ParserError> {
         let (_, range) = consume!(self, Token::Type)?;
         let (name, _) = consume!(self, Token::TVar(name) => name.clone())?;
+        let symbol = Symbol::new(name);
 
         consume!(self, Token::Colon)?;
         let anno = self.parse_kind()?;
@@ -173,7 +179,7 @@ impl<'a> Parser<'a> {
         let body = self.parse_expr()?;
 
         Ok(Expr::TypeAlias(TypeAlias {
-            name,
+            name: symbol,
             value: Type::TyAnno(TyAnno { ty: Box::new(value.clone()), anno }),
             body: Box::new(body.clone()),
             range: range.mix(body.range()),
@@ -183,6 +189,7 @@ impl<'a> Parser<'a> {
     pub fn parse_kind_alias(&mut self) -> Result<Expr, ParserError> {
         let (_, range) = consume!(self, Token::Kind)?;
         let (name, _) = consume!(self, Token::TVar(name) => name.clone())?;
+        let symbol = Symbol::new(name);
 
         consume!(self, Token::Equal)?;
         let value = self.parse_kind()?;
@@ -191,20 +198,43 @@ impl<'a> Parser<'a> {
         let body = self.parse_expr()?;
 
         Ok(Expr::KindAlias(KindAlias {
-            name,
+            name: symbol,
             body: Box::new(body.clone()),
             value: value.clone(),
             range: range.mix(body.range()),
         }))
     }
 
-    pub fn parse_expr(&mut self) -> Result<Expr, ParserError> {
+    pub fn parse_annot(&mut self) -> Result<Expr, ParserError> {
+        let (_, range) = consume!(self, Token::LParen)?;
+        let expr = self.parse_annot_lambda()?;
+
+        consume!(self, Token::Colon)?;
+        let ty = self.parse_type()?;
+
+        Ok(Expr::Anno(Anno { expr: Box::new(expr), anno: ty, range }))
+    }
+
+    pub fn parse_annot_lambda(&mut self) -> Result<Expr, ParserError> {
         match self.get() {
             Token::Lambda => self.parse_abs(),
+            _ => self.parse_application(),
+        }
+    }
+
+    pub fn parse_annot_expr(&mut self) -> Result<Expr, ParserError> {
+        match self.get() {
+            Token::LParen => self.parse_annot(),
+            _ => self.parse_expr(),
+        }
+    }
+
+    pub fn parse_expr(&mut self) -> Result<Expr, ParserError> {
+        match self.get() {
             Token::Let => self.parse_let_alias(),
             Token::Type => self.parse_type_alias(),
             Token::Kind => self.parse_kind_alias(),
-            _ => self.parse_application(),
+            _ => self.parse_annot_lambda(),
         }
     }
 
@@ -250,11 +280,14 @@ impl<'a> Parser<'a> {
             }
             Token::TVar(_) => {
                 let (token, _) = consume!(self, Token::TVar(var) => var.clone())?;
-                Ok(Type::TVar(TVar { value: token }))
+                let symbol = Symbol::new(token);
+
+                Ok(Type::TVar(TVar { value: symbol }))
             }
             Token::Forall => {
                 consume!(self, Token::Forall)?;
                 let (token, _) = consume!(self, Token::TVar(var) => var.clone())?;
+                let symbol = Symbol::new(token);
 
                 consume!(self, Token::Colon)?;
                 let param_type = self.parse_kind()?;
@@ -263,7 +296,7 @@ impl<'a> Parser<'a> {
                 let body = self.parse_type()?;
 
                 Ok(Type::Forall(Forall {
-                    param: token,
+                    param: symbol,
                     param_ty: param_type,
                     body: Box::new(body),
                 }))
@@ -271,6 +304,7 @@ impl<'a> Parser<'a> {
             Token::Lambda => {
                 consume!(self, Token::Lambda)?;
                 let (param, _) = consume!(self, Token::TVar(var) => var.clone())?;
+                let symbol = Symbol::new(param);
 
                 consume!(self, Token::Colon)?;
                 let param_type = self.parse_kind()?;
@@ -279,7 +313,7 @@ impl<'a> Parser<'a> {
                 let body = self.parse_type()?;
 
                 Ok(Type::TyAbs(TyAbs {
-                    param,
+                    param: symbol,
                     param_ty: param_type,
                     body: Box::new(body),
                 }))
@@ -337,7 +371,9 @@ impl<'a> Parser<'a> {
             }
             Token::TVar(_) => {
                 let (token, _) = consume!(self, Token::TVar(var) => var.clone())?;
-                Ok(Kind::KindVar(KindVar { value: token }))
+                let symbol = Symbol::new(token);
+
+                Ok(Kind::KindVar(KindVar { value: symbol }))
             }
             _ => self.fail(),
         }

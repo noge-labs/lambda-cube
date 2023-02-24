@@ -1,4 +1,4 @@
-use super::location::Range;
+use super::{location::Range, symbol::Symbol};
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -9,13 +9,13 @@ pub struct Int {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Var {
-    pub value: String,
+    pub value: Symbol,
     pub range: Range,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Abs {
-    pub param: String,
+    pub param: Symbol,
     pub param_ty: Type,
     pub body: Box<Expr>,
     pub range: Range,
@@ -30,7 +30,7 @@ pub struct App {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TAbs {
-    pub param: String,
+    pub param: Symbol,
     pub param_ty: Kind,
     pub body: Box<Expr>,
     pub range: Range,
@@ -55,12 +55,12 @@ pub struct TInt {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TVar {
-    pub value: String,
+    pub value: Symbol,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Forall {
-    pub param: String,
+    pub param: Symbol,
     pub param_ty: Kind,
     pub body: Box<Type>,
 }
@@ -73,7 +73,7 @@ pub struct Arrow {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TyAbs {
-    pub param: String,
+    pub param: Symbol,
     pub param_ty: Kind,
     pub body: Box<Type>,
 }
@@ -95,7 +95,7 @@ pub struct Star {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct KindVar {
-    pub value: String,
+    pub value: Symbol,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -106,7 +106,7 @@ pub struct KindArrow {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LetAlias {
-    pub name: String,
+    pub name: Symbol,
     pub value: Box<Expr>,
     pub body: Box<Expr>,
     pub range: Range,
@@ -114,7 +114,7 @@ pub struct LetAlias {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeAlias {
-    pub name: String,
+    pub name: Symbol,
     pub value: Type,
     pub body: Box<Expr>,
     pub range: Range,
@@ -122,7 +122,7 @@ pub struct TypeAlias {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct KindAlias {
-    pub name: String,
+    pub name: Symbol,
     pub value: Kind,
     pub body: Box<Expr>,
     pub range: Range,
@@ -285,7 +285,7 @@ impl fmt::Display for Kind {
 
 impl fmt::Display for LetAlias {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "let {}: {} in\n{}", self.name, self.value, self.body)
+        write!(f, "let {} = {} in\n{}", self.name, self.value, self.body)
     }
 }
 
@@ -303,7 +303,7 @@ impl fmt::Display for KindAlias {
 
 impl fmt::Display for Anno {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} = {}", self.expr, self.anno)
+        write!(f, "{}:{}", self.expr, self.anno)
     }
 }
 

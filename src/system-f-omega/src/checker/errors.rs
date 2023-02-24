@@ -3,6 +3,8 @@ use std::fmt::Display;
 
 use crate::parser::parsetree::Type;
 
+use super::typedtree as T;
+
 #[derive(Debug)]
 pub enum TypeError {
     Mismatch(Type, Type),
@@ -10,6 +12,8 @@ pub enum TypeError {
     UnexpectedType(Type),
     VariableClash,
     TypeClash,
+    TypeNotAForall(T::Type),
+    TypeNotAArrow(T::Type),
 }
 
 impl Display for TypeError {
@@ -20,6 +24,8 @@ impl Display for TypeError {
             TypeError::UnexpectedType(t) => write!(f, "unexpected type {}", t),
             TypeError::VariableClash => write!(f, "variable clash"),
             TypeError::TypeClash => write!(f, "type clash"),
+            TypeError::TypeNotAForall(t) => write!(f, "TypeNotAForall {}", t),
+            TypeError::TypeNotAArrow(t) => write!(f, "TypeNotAArrow {}", t),
         }
     }
 }
