@@ -3,13 +3,8 @@ pub enum Token {
     Number(usize),
     Variable(String),
     Lambda,
-    Kind,
-    Type,
-    Let,
-    In,
 
     TInt,
-    TVar(String),
     Star,
     Pi,
 

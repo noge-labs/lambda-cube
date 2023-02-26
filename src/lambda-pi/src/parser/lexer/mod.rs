@@ -33,17 +33,13 @@ impl<'a> Lexer<'a> {
     fn to_type(buf: &str) -> Token {
         match buf {
             "Int" => Token::TInt,
-            _ => Token::TVar(buf.to_string()),
+            _ => Token::Variable(buf.to_string()),
         }
     }
 
     fn to_keyword(buf: &str) -> Token {
         match buf {
             "lambda" => Token::Lambda,
-            "kind" => Token::Kind,
-            "type" => Token::Type,
-            "let" => Token::Let,
-            "in" => Token::In,
             _ => Token::Variable(buf.to_string()),
         }
     }
