@@ -3,7 +3,7 @@ use super::{
     lexer::tokens::Token,
     location::Range,
     macros::{consume, match_token},
-    parsetree::{Abs, App, Expr, Int, TAbs, TApp, Type, Var},
+    parsetree::{Abs, App, Expr, Fst, Int, Pair, Snd, TAbs, TApp, Type, Var},
     state::Parser,
 };
 
@@ -20,11 +20,26 @@ impl<'a> Parser<'a> {
         Ok(Expr::Int(Int { value: token, range }))
     }
 
+    pub fn parse_pair(&mut self) -> Result<Expr, ParserError> {
+        let (_, range_l) = consume!(self, Token::LBrace)?;
+        let fst = self.parse_expr()?;
+        consume!(self, Token::Comma)?;
+        let snd = self.parse_expr()?;
+        let (_, range_r) = consume!(self, Token::RBrace)?;
+
+        Ok(Expr::Pair(Pair {
+            fst: Box::new(fst),
+            snd: Box::new(snd),
+            range: range_l.mix(range_r),
+        }))
+    }
+
     pub fn parse_atom(&mut self) -> Result<Expr, ParserError> {
         match self.get() {
             Token::LParen => self.parse_parens_expr(),
             Token::Variable(_) => self.parse_variable_expr(),
             Token::Number(_) => self.parse_number_expr(),
+            Token::LBrace => self.parse_pair(),
             _ => self.fail(),
         }
     }
@@ -120,7 +135,6 @@ impl<'a> Parser<'a> {
 
     pub fn parse_parens_expr(&mut self) -> Result<Expr, ParserError> {
         consume!(self, Token::LParen)?;
-
         let expr = self.parse_expr()?;
         consume!(self, Token::RParen)?;
 
@@ -154,10 +168,32 @@ impl<'a> Parser<'a> {
         }))
     }
 
+    pub fn parse_fst(&mut self) -> Result<Expr, ParserError> {
+        let (_, range) = consume!(self, Token::Fst)?;
+        let pair = self.parse_expr()?;
+
+        Ok(Expr::Fst(Fst {
+            pair: Box::new(pair.clone()),
+            range: range.mix(pair.range()),
+        }))
+    }
+
+    pub fn parse_snd(&mut self) -> Result<Expr, ParserError> {
+        let (_, range) = consume!(self, Token::Snd)?;
+        let pair = self.parse_expr()?;
+
+        Ok(Expr::Snd(Snd {
+            pair: Box::new(pair.clone()),
+            range: range.mix(pair.range()),
+        }))
+    }
+
     pub fn parse_expr(&mut self) -> Result<Expr, ParserError> {
         match self.get() {
             Token::Lambda => self.parse_abs(),
             Token::Let => self.parse_let(),
+            Token::Fst => self.parse_fst(),
+            Token::Snd => self.parse_snd(),
             _ => self.parse_application(),
         }
     }
@@ -184,23 +220,36 @@ impl<'a> Parser<'a> {
                 consume!(self, Token::Dot)?;
                 let body = self.parse_type()?;
 
-                Ok(Type::Forall { param: token, body: Box::new(body) })
+                Ok(Type::Forall {
+                    param: token,
+                    body: Box::new(body),
+                })
             }
             _ => self.fail(),
         }
     }
 
     pub fn parse_arrow_partial(&mut self, head: Type) -> Result<Type, ParserError> {
-        if let Token::Arrow = self.get() {
-            consume!(self, Token::Arrow)?;
-            let body = self.parse_type()?;
+        match self.get() {
+            Token::Arrow => {
+                consume!(self, Token::Arrow)?;
+                let body = self.parse_type()?;
 
-            Ok(Type::Arrow {
-                left: Box::new(head.clone()),
-                right: Box::new(body.clone()),
-            })
-        } else {
-            Ok(head)
+                Ok(Type::Arrow {
+                    left: Box::new(head),
+                    right: Box::new(body),
+                })
+            }
+            Token::Prod => {
+                consume!(self, Token::Prod)?;
+                let body = self.parse_type()?;
+
+                Ok(Type::Product {
+                    fst: Box::new(head),
+                    snd: Box::new(body),
+                })
+            }
+            _ => Ok(head),
         }
     }
 

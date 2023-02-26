@@ -13,7 +13,7 @@ fn is_digit(c: char) -> bool {
 }
 
 fn is_reserved(c: char) -> bool {
-    matches!(c, '(' | ')' | '[' | ']' | '.' | ':' | '=' | 'λ')
+    matches!(c, '(' | ')' | '[' | ']' | '{' | '}' | '.' | ',' | ':' | '=' | 'λ' | '*' | '×')
 }
 
 fn is_valid_char(c: char) -> bool {
@@ -42,6 +42,8 @@ impl<'a> Lexer<'a> {
             "lambda" => Token::Lambda,
             "forall" => Token::Forall,
             "let" => Token::Let,
+            "fst" => Token::Fst,
+            "snd" => Token::Snd,
             "in" => Token::In,
             "->" => Token::Arrow,
             _ => Token::Variable(buf.to_string()),
@@ -63,6 +65,8 @@ impl<'a> Lexer<'a> {
                     self.accu_while(|x| x == '\n' || x == '\r');
                     self.lex_token()
                 }
+                '*' => self.single_token(Token::Prod, start),
+                '×' => self.single_token(Token::Prod, start),
                 'λ' => self.single_token(Token::Lambda, start),
                 '∀' => self.single_token(Token::Forall, start),
                 'Λ' => self.single_token(Token::Forall, start),
@@ -71,8 +75,11 @@ impl<'a> Lexer<'a> {
                 ')' => self.single_token(Token::RParen, start),
                 '[' => self.single_token(Token::LBracket, start),
                 ']' => self.single_token(Token::RBracket, start),
+                '{' => self.single_token(Token::LBrace, start),
+                '}' => self.single_token(Token::RBrace, start),
                 ':' => self.single_token(Token::Colon, start),
                 '.' => self.single_token(Token::Dot, start),
+                ',' => self.single_token(Token::Comma, start),
                 chr if is_digit(*chr) => {
                     let num = self.accu_while(is_digit);
                     let num = num.parse::<usize>().unwrap();

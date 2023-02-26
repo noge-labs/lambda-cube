@@ -1,4 +1,4 @@
-use crate::parser::parsetree::{Abs, App, Expr, Int, TAbs, TApp, Type, Var};
+use crate::parser::parsetree::{Abs, App, Expr, Fst, Int, Pair, Snd, TAbs, TApp, Type, Var};
 use std::collections::HashSet;
 
 pub fn free_variables(expr: Expr) -> HashSet<String> {
@@ -8,6 +8,16 @@ pub fn free_variables(expr: Expr) -> HashSet<String> {
         Expr::Int(Int { .. }) => (),
         Expr::Var(Var { value, .. }) => {
             free.insert(value);
+        }
+        Expr::Pair(Pair { fst, snd, .. }) => {
+            free.extend(free_variables(*fst));
+            free.extend(free_variables(*snd));
+        }
+        Expr::Fst(Fst { pair, .. }) => {
+            free.extend(free_variables(*pair));
+        }
+        Expr::Snd(Snd { pair, .. }) => {
+            free.extend(free_variables(*pair));
         }
         Expr::App(App { lambda, argm, .. }) => {
             free.extend(free_variables(*lambda));
@@ -29,6 +39,20 @@ pub fn substitution(expr: Expr, from: String, to: Expr) -> Expr {
         Expr::Var(Var { value, .. }) if value == from => to,
         Expr::Var(Var { .. }) => expr,
         Expr::Int(Int { .. }) => expr,
+        Expr::Pair(pair) => {
+            let fst = substitution(*pair.fst, from.clone(), to.clone());
+            let snd = substitution(*pair.snd, from.clone(), to.clone());
+
+            Expr::Pair(Pair { fst: Box::new(fst), snd: Box::new(snd), ..pair })
+        }
+        Expr::Fst(fst) => {
+            let pair = substitution(*fst.pair, from, to);
+            Expr::Fst(Fst { pair: Box::new(pair), ..fst })
+        }
+        Expr::Snd(snd) => {
+            let pair = substitution(*snd.pair, from, to);
+            Expr::Snd(Snd { pair: Box::new(pair), ..snd })
+        }
         Expr::App(app) => {
             let lambda = substitution(*app.lambda, from.clone(), to.clone());
             let argm = substitution(*app.argm, from, to);
