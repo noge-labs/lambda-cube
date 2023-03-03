@@ -3,9 +3,18 @@ use system_f::parser;
 use system_f::reduction;
 
 fn main() {
-    // let swap: ∀A. ∀B. ((A * B) -> (B * A)) = λA. λB. λp: (A * B). (snd p, fst p) in swap
-    // let input = r"λA. λB. λx: A. λy: B. (x * y)";
-    let input = "(λA. λB. λx: A. λy: B. x) [Bool]";
+    let input = r"
+    val swap : ∀A. ∀B. ((A * B) -> (B * A))
+    let swap = λA. λB. λp: (A * B). (snd p, fst p) in
+    
+    val swap_int : ((Int * Int) -> (Int * Int))
+    let swap_int = swap [Int] [Int] in
+    
+    val swap_bool : ((Bool * Bool) -> (Bool * Bool))
+    let swap_bool = swap [Bool] [Bool] in
+    
+    swap_int true false
+    ";
 
     let expr_parsed = parser::from_string(input).unwrap();
     let expr_typed = checker::type_of(expr_parsed.clone()).unwrap();
