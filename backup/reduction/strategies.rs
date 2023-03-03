@@ -16,7 +16,6 @@ pub fn normal_order(ex: Expr, limit: Option<usize>) -> Expr {
 
     match ex {
         Expr::Int(int) => Expr::Int(int),
-        Expr::Bool(bol) => Expr::Bool(bol),
         Expr::Var(var) => Expr::Var(var),
         Expr::Pair(pair) => {
             let fst = normal_order(*pair.fst, limit);
@@ -74,6 +73,7 @@ pub fn normal_order(ex: Expr, limit: Option<usize>) -> Expr {
             Expr::TAbs(TAbs {
                 param: tabs.param,
                 body: Box::new(body),
+                range: tabs.range,
             })
         }
         Expr::TApp(tapp) => {
@@ -90,6 +90,7 @@ pub fn normal_order(ex: Expr, limit: Option<usize>) -> Expr {
                     Expr::TApp(TApp {
                         lambda: Box::new(func),
                         argm: tapp.argm,
+                        range: tapp.range,
                     })
                 }
             }

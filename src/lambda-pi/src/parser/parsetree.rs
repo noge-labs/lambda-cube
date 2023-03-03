@@ -147,10 +147,10 @@ impl fmt::Display for Checkable {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Expr::Star(_) => write!(f, "*"),
             Expr::Int(int) => write!(f, "{}", int),
             Expr::Var(var) => write!(f, "{}", var),
             Expr::Prod(prod) => write!(f, "{}", prod),
-            Expr::Star(_) => write!(f, "*"),
             Expr::Appl(appl) => write!(f, "{}", appl),
             Expr::Anno(anno) => write!(f, "{}", anno),
         }

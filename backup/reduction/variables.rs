@@ -1,4 +1,4 @@
-use crate::parser::parsetree::{Abs, App, Bool, Expr, Fst, Int, Pair, Snd, TAbs, TApp, Type, Var};
+use crate::parser::parsetree::{Abs, App, Expr, Fst, Int, Pair, Snd, TAbs, TApp, Type, Var};
 use std::collections::HashSet;
 
 pub fn free_variables(expr: Expr) -> HashSet<String> {
@@ -6,7 +6,6 @@ pub fn free_variables(expr: Expr) -> HashSet<String> {
 
     match expr {
         Expr::Int(Int { .. }) => (),
-        Expr::Bool(Bool { .. }) => (),
         Expr::Var(Var { value, .. }) => {
             free.insert(value);
         }
@@ -40,16 +39,11 @@ pub fn substitution(expr: Expr, from: String, to: Expr) -> Expr {
         Expr::Var(Var { value, .. }) if value == from => to,
         Expr::Var(Var { .. }) => expr,
         Expr::Int(Int { .. }) => expr,
-        Expr::Bool(Bool { .. }) => expr,
         Expr::Pair(pair) => {
             let fst = substitution(*pair.fst, from.clone(), to.clone());
             let snd = substitution(*pair.snd, from.clone(), to.clone());
 
-            Expr::Pair(Pair {
-                fst: Box::new(fst),
-                snd: Box::new(snd),
-                ..pair
-            })
+            Expr::Pair(Pair { fst: Box::new(fst), snd: Box::new(snd), ..pair })
         }
         Expr::Fst(fst) => {
             let pair = substitution(*fst.pair, from, to);
@@ -80,13 +74,13 @@ pub fn substitution(expr: Expr, from: String, to: Expr) -> Expr {
 
             Expr::Abs(abs)
         }
-        Expr::TAbs(TAbs { param, body }) => {
+        Expr::TAbs(TAbs { param, body, range }) => {
             let body = substitution(*body, from, to);
-            Expr::TAbs(TAbs { param, body: Box::new(body) })
+            Expr::TAbs(TAbs { param, body: Box::new(body), range })
         }
-        Expr::TApp(TApp { lambda, argm }) => {
+        Expr::TApp(TApp { lambda, argm, range }) => {
             let lambda = substitution(*lambda, from, to);
-            Expr::TApp(TApp { lambda: Box::new(lambda), argm })
+            Expr::TApp(TApp { lambda: Box::new(lambda), argm, range })
         }
     }
 }
@@ -114,12 +108,13 @@ pub fn type_substitution(expr: &Expr, from: &str, to: &Type) -> Expr {
             });
         }
         Expr::TAbs(tabs) if tabs.param == from => expr.clone(),
-        Expr::TAbs(TAbs { param, body }) => {
+        Expr::TAbs(TAbs { param, body, range }) => {
             let body = type_substitution(&body, from, to);
 
             Expr::TAbs(TAbs {
                 param: param.clone(),
                 body: Box::new(body),
+                range: range.clone(),
             })
         }
         _ => expr.clone(),

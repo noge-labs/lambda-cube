@@ -1,5 +1,9 @@
 # lambda-cube
 
+# Features
+
+- All typed languages are Church style with explicit type-annotations.
+
 ## Roadmap / Todo
 
 - [x] Untyped Lambda Calculus
@@ -7,13 +11,13 @@
   - [x] Applicative Order
   - [x] Call by name
   - [x] Call by need
-  - [ ] Tests
   - [ ] README
 - [x] Simply Typed Lambda Calculus
-  - [ ] Tests
 - [x] System F
-  - [ ] Tests
-  - [x] Let-in Sugar
-- [ ] System F Omega
-- [ ] Lambda Pi
+  - [ ] Type alias
+  - [ ] Pairs / Product
+- [x] System F Omega
+- [ ] Lambda Pi 
+  - Not implemented yet
 - [ ] Calculus of constructions
+  - Not implemented yet

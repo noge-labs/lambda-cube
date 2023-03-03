@@ -4,10 +4,13 @@ use system_f_omega::parser;
 // use system_f_omega::reduction;
 
 fn main() {
+    // type Id: * = ∀A: *. (A -> A) in
+    // let id: Id = λA: *. λx: A. x in
+    // id [Int] 69420
     let input = r"
-        type Id: * = ∀A: *. (A -> A) in
-        let id: Id = λA: *. λx: A. x in
-        id [Int] 69420
+        type Fix: * = ∀A: *. ∀B: *. (A -> B) -> A -> B in
+        let fix: Fix = λf: A -> B. λx : A. f x in 
+        fix
     ";
 
     let expr_parsed = parser::from_string(input).unwrap();

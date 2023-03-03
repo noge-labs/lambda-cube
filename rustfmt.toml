@@ -1,1 +1,2 @@
-struct_lit_width = 50
+struct_lit_width = 30
+chain_width = 80

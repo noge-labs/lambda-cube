@@ -1,13 +1,13 @@
 use core::fmt;
 use std::fmt::Display;
 
-use crate::parser::parsetree::Expr;
+use crate::parser::parsetree::Type;
 
 #[derive(Debug)]
 pub enum TypeError {
-    Mismatch(Expr, Expr),
+    Mismatch(Type, Type),
     UndefinedVariable(String),
-    UnexpectedType(Expr),
+    UnexpectedType(Type),
     VariableClash,
     TypeClash,
 }
